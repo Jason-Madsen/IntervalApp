@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PulseTimer - Interval Training</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter and Bebas Neue for high-visibility digits -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            timer: ['"Bebas Neue"', 'sans-serif']
+          },
+          colors: {
+            work: '#10b981',      /* vibrant emerald */
+            rest: '#f59e0b',      /* high-contrast amber */
+            warmup: '#06b6d4',    /* neon cyan */
+            roundrest: '#ec4899', /* distinct magenta */
+            finished: '#8b5cf6'   /* purple */
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    /* Smooth transition for active timer states */
+    .timer-bg-transition {
+      transition: background-color 0.4s ease, border-color 0.4s ease;
+    }
+    /* Touch friendly styles */
+    button, input, select {
+      touch-action: manipulation;
+    }
+    /* Prevent accidental bounce scrolling on iOS */
+    body {
+      overscroll-behavior-y: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased select-none">
+
+  <!-- ========================================== -->
+  <!-- 1. MAIN APP / WORKOUT LIST & BUILDER VIEW  -->
+  <!-- ========================================== -->
+  <div id="view-dashboard" class="max-w-xl mx-auto min-h-screen px-4 py-6 pb-28 flex flex-col">
+    <!-- Header -->
+    <header class="flex items-center justify-between pb-5 border-b border-slate-800">
+      <div>
+        <h1 class="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
+          <span class="inline-block w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          PULSE TIMER
+        </h1>
+        <p class="text-xs text-slate-400 font-medium tracking-wide uppercase mt-0.5">High-Contrast Interval Trainer</p>
+      </div>
+      <button id="btn-create-routine" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold rounded-xl text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        New Workout
+      </button>
+    </header>
+
+    <!-- Workout List Section -->
+    <main class="mt-6 flex-1 flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Your Routines</h2>
+        <span id="routine-count" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">0</span>
+      </div>
+
+      <!-- Container for Routine Cards -->
+      <div id="routines-list" class="space-y-3.5">
+        <!-- Rendered dynamically -->
+      </div>
+    </main>
+
+    <!-- Quick Audio Engine Permission Helper Banner (if needed) -->
+    <div class="mt-8 p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 text-xs flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+        <span>Screen stays awake & audio speaks 10s cues + 3-2-1 tones.</span>
+      </div>
+      <button id="btn-test-sound" class="text-xs font-bold text-emerald-400 hover:underline px-2 py-1">Test Audio</button>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 2. WORKOUT BUILDER / EDITOR MODAL          -->
+  <!-- ========================================== -->
+  <div id="modal-editor" class="fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-sm hidden overflow-y-auto">
+    <div class="min-h-full flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col max-h-[92vh]">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
+          <div>
+            <h3 id="modal-title" class="text-lg font-black text-white">Create Workout</h3>
+            <p class="text-xs text-slate-400">Configure rounds, warm-up, and intervals</p>
+          </div>
+          <button id="btn-close-modal" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Scrollable Form Body -->
+        <div class="overflow-y-auto py-4 space-y-4 pr-1 flex-1">
+          <!-- Routine Name -->
+          <div>
+            <label class="block text-xs font-bold tracking-wider uppercase text-slate-300 mb-1">Workout Name</label>
+            <input type="text" id="input-routine-name" placeholder="e.g. Full Body HIIT" class="w-full bg-slate-800/90 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-medium focus:outline-none focus:border-emerald-500 text-sm">
+          </div>
+
+          <!-- Overall Settings Grid -->
+          <div class="grid grid-cols-3 gap-2.5">
+            <!-- Warmup -->
+            <div class="bg-slate-800/40 border border-slate-800 p-2.5 rounded-xl">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1">Warm-up (s)</label>
+              <input type="number" id="input-warmup" min="0" max="600" step="5" value="0" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-center font-bold text-white text-base focus:border-cyan-400 focus:outline-none">
+              <span class="block text-[9px] text-slate-400 text-center mt-1">0 to disable</span>
+            </div>
+
+            <!-- Rounds -->
+            <div class="bg-slate-800/40 border border-slate-800 p-2.5 rounded-xl">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-300 mb-1">Rounds</label>
+              <input type="number" id="input-rounds" min="1" max="50" step="1" value="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-center font-bold text-white text-base focus:border-emerald-500 focus:outline-none">
+              <span class="block text-[9px] text-slate-400 text-center mt-1">circuits</span>
+            </div>
+
+            <!-- Rest Between Rounds -->
+            <div class="bg-slate-800/40 border border-slate-800 p-2.5 rounded-xl">
+              <label class="block text-[10px] font-bold uppercase tracking-wider text-pink-400 mb-1">Round Rest (s)</label>
+              <input type="number" id="input-round-rest" min="0" max="300" step="5" value="45" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-center font-bold text-white text-base focus:border-pink-400 focus:outline-none">
+              <span class="block text-[9px] text-slate-400 text-center mt-1">between circuits</span>
+            </div>
+          </div>
+
+          <!-- Exercise Sequence List -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-300">Exercises in Circuit</label>
+              <button type="button" id="btn-add-exercise" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                Add Exercise
+              </button>
+            </div>
+
+            <div id="editor-exercises-list" class="space-y-2">
+              <!-- Dynamically populated rows -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Actions Footer -->
+        <div class="pt-3 border-t border-slate-800 flex items-center gap-3 shrink-0">
+          <button id="btn-cancel-modal" class="w-1/3 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 font-bold text-slate-300 text-sm transition">Cancel</button>
+          <button id="btn-save-routine" class="w-2/3 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 font-black text-slate-950 text-sm tracking-wide shadow-lg shadow-emerald-500/20 transition">Save Workout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 3. FULL-SCREEN ACTIVE WORKOUT TIMER VIEW   -->
+  <!-- ========================================== -->
+  <div id="view-timer" class="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-between hidden timer-bg-transition select-none">
+    
+    <!-- Top Bar: Progress, Round & Close -->
+    <div class="p-4 sm:p-6 flex flex-col gap-2">
+      <div class="flex items-center justify-between">
+        <!-- Exit Workout -->
+        <button id="btn-timer-exit" class="px-3.5 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 font-bold text-xs uppercase tracking-wider hover:bg-slate-800 active:scale-95 flex items-center gap-1.5 backdrop-blur-md">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+          Exit
+        </button>
+
+        <!-- Current Round Pill -->
+        <div id="timer-round-pill" class="px-4 py-1.5 rounded-full bg-slate-900/90 border border-white/10 text-white font-extrabold text-xs sm:text-sm tracking-wider uppercase backdrop-blur-md shadow-sm">
+          Round 1 / 3
+        </div>
+
+        <!-- Mute/Sound Toggle -->
+        <button id="btn-timer-sound-toggle" class="p-2 rounded-xl bg-slate-900/80 border border-white/10 text-slate-300 hover:text-white active:scale-95 backdrop-blur-md" title="Toggle Sound">
+          <svg id="icon-sound-on" class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+          <svg id="icon-sound-off" class="w-5 h-5 text-rose-500 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+        </button>
+      </div>
+
+      <!-- Overall Routine Progress Bar -->
+      <div class="w-full bg-slate-900/70 h-2.5 rounded-full overflow-hidden border border-white/10 mt-1">
+        <div id="timer-progress-bar" class="h-full bg-emerald-500 transition-all duration-300 rounded-full" style="width: 0%"></div>
+      </div>
+      <div class="flex justify-between text-[11px] font-bold text-slate-400 tracking-wider">
+        <span id="timer-elapsed-text">Elapsed: 00:00</span>
+        <span id="timer-remaining-text">Remaining: 00:00</span>
+      </div>
+    </div>
+
+    <!-- Center Stage: Giant High-Contrast Display -->
+    <div class="flex-1 flex flex-col items-center justify-center px-4 text-center my-auto">
+      
+      <!-- Phase / Exercise Status Badge -->
+      <div class="mb-2">
+        <span id="timer-phase-badge" class="px-5 py-2 rounded-2xl text-xs sm:text-sm font-black tracking-widest uppercase border shadow-xl bg-emerald-500/20 text-emerald-400 border-emerald-500/40">
+          WORK
+        </span>
+      </div>
+
+      <!-- Current Exercise / Action Title -->
+      <h2 id="timer-current-name" class="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white line-clamp-2 max-w-2xl px-2 drop-shadow-md">
+        DEFICIT PUSH-UPS
+      </h2>
+
+      <!-- Giant Countdown Digits (Legible from 15+ ft away) -->
+      <div class="my-2 sm:my-4 flex items-center justify-center">
+        <span id="timer-seconds" class="font-timer text-[32vw] sm:text-[22vw] md:text-[18vw] leading-none font-bold tracking-tight text-emerald-400 drop-shadow-2xl">
+          40
+        </span>
+      </div>
+
+      <!-- Next Up Callout Pill -->
+      <div class="w-full max-w-sm px-4">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-lg flex items-center justify-between text-left backdrop-blur-md">
+          <div class="min-w-0 flex-1">
+            <span class="block text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-400">Next Up (10s reminder)</span>
+            <span id="timer-next-name" class="block text-sm sm:text-base font-extrabold text-amber-400 truncate mt-0.5">
+              Rest (20s)
+            </span>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 shrink-0 ml-3">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="p-6 pb-8 sm:pb-8 flex items-center justify-center gap-4 sm:gap-6 bg-slate-950/80 backdrop-blur-sm border-t border-slate-900">
+      <!-- Previous Step Button -->
+      <button id="btn-timer-prev" class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center justify-center active:scale-90 hover:bg-slate-800 transition shadow-md" title="Previous Step">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+
+      <!-- Main Pause / Resume Button -->
+      <button id="btn-timer-playpause" class="w-20 h-20 rounded-3xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 flex items-center justify-center shadow-xl shadow-emerald-500/25 transition">
+        <!-- Pause Icon -->
+        <svg id="icon-pause" class="w-9 h-9" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+        <!-- Play Icon -->
+        <svg id="icon-play" class="w-9 h-9 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+
+      <!-- Next Step Button -->
+      <button id="btn-timer-next" class="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 text-slate-200 flex items-center justify-center active:scale-90 hover:bg-slate-800 transition shadow-md" title="Skip to Next Step">
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 4. CUSTOM NOTIFICATION / ALERT MODAL       -->
+  <!-- ========================================== -->
+  <div id="modal-alert" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <div id="alert-icon-container" class="w-12 h-12 mx-auto rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <h4 id="alert-title" class="text-base font-bold text-white mb-1">Notice</h4>
+      <p id="alert-message" class="text-xs text-slate-400 mb-5 leading-relaxed">Alert message goes here.</p>
+      <div id="alert-actions" class="flex gap-2">
+        <button id="btn-alert-ok" class="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition">Got it</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 5. APPLICATION LOGIC JAVASCRIPT            -->
+  <!-- ========================================== -->
+  <script>
+    /* ========================================================
+       STATE & CONSTANTS
+       ======================================================== */
+    const STORAGE_KEY = 'pulsetimer_routines_v1';
+    let routines = [];
+    let editingRoutineId = null;
+
+    // Default pre-populated routine
+    const DEFAULT_ROUTINES = [
+      {
+        id: 'default-hiit',
+        name: 'Full Body HIIT Circuit',
+        warmup: 10,
+        rounds: 3,
+        roundRest: 45,
+        exercises: [
+          { name: 'Deficit Push-Ups', work: 40, rest: 20 },
+          { name: 'Towel Body Rows', work: 40, rest: 20 },
+          { name: 'Zottman Dumbbell Curls', work: 40, rest: 20 },
+          { name: 'Couch Pullovers', work: 40, rest: 20 },
+          { name: 'Bodyweight Squats', work: 40, rest: 20 }
+        ]
+      },
+      {
+        id: 'core-blaster',
+        name: 'Tabata Core Crusher',
+        warmup: 15,
+        rounds: 4,
+        roundRest: 30,
+        exercises: [
+          { name: 'Bicycle Crunches', work: 20, rest: 10 },
+          { name: 'Plank Hold', work: 20, rest: 10 },
+          { name: 'Hanging Knee Raises', work: 20, rest: 10 },
+          { name: 'Russian Twists', work: 20, rest: 10 }
+        ]
+      }
+    ];
+
+    // Timer Execution State
+    let activeRoutine = null;
+    let timeline = [];
+    let currentStepIndex = 0;
+    let stepSecondsLeft = 0;
+    let timerInterval = null;
+    let isPaused = false;
+    let totalWorkoutSeconds = 0;
+    let totalSecondsElapsed = 0;
+    let wakeLock = null;
+    let soundEnabled = true;
+
+    /* ========================================================
+       AUDIO ENGINE (Web Audio API & Web Speech API)
+       ======================================================== */
+    let audioCtx = null;
+
+    /**
+     * Configures the Web Audio Context and audio session so background
+     * music (Spotify, Apple Music, YouTube Music) is preserved and ducked
+     * rather than stopped or cut off on iOS and Android.
+     */
+    function setupAudioSession() {
+      if ('audioSession' in navigator) {
+        try {
+          // 'ambient' / 'duck' tells iOS and modern Android browsers to mix
+          // timer beeps with background music and lower background volume temporarily
+          navigator.audioSession.type = 'ambient';
+        } catch (e) {
+          console.debug('AudioSession API configuration notice:', e);
+        }
+      }
+    }
+
+    function getAudioContext() {
+      setupAudioSession();
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          // latencyHint 'interactive' ensures quick beep timing without claiming exclusive audio focus
+          audioCtx = new AudioContextClass({ latencyHint: 'interactive' });
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    /**
+     * Synthesizes audio tones using Web Audio oscillators
+     * @param {number} freq - frequency in Hz
+     * @param {number} duration - seconds
+     * @param {string} type - 'sine' | 'square' | 'triangle'
+     */
+    function playBeep(freq = 700, duration = 0.12, type = 'sine') {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+        // Envelope: soft start, quick decay to prevent pop
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (err) {
+        console.warn('Audio Tone Error:', err);
+      }
+    }
+
+    /**
+     * High chime for interval transition (0 seconds)
+     */
+    function playIntervalChangeTone() {
+      if (!soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(880, now); // A5 note
+        osc.frequency.exponentialRampToValueAtTime(1320, now + 0.25); // slides up to E6
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.6, now + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.45);
+      } catch (err) {
+        console.warn('Audio Chime Error:', err);
+      }
+    }
+
+    /**
+     * Text-To-Speech announcement using Web Speech API
+     * @param {string} text 
+     */
+    function speakText(text) {
+      if (!soundEnabled) return;
+      if (!('speechSynthesis' in window)) return;
+
+      try {
+        setupAudioSession();
+        window.speechSynthesis.cancel(); // cancel any active queue
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05; // Slightly brisk for fitness pacing
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Try to pick an English voice if available
+        const voices = window.speechSynthesis.getVoices();
+        const enVoice = voices.find(v => v.lang.startsWith('en') && !v.name.includes('Bad'));
+        if (enVoice) utterance.voice = enVoice;
+
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn('Speech Synthesis Error:', e);
+      }
+    }
+
+    /* ========================================================
+       SCREEN WAKE LOCK (Prevents mobile display sleep)
+       ======================================================== */
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock request error:', err);
+      }
+    }
+
+    function releaseWakeLock() {
+      if (wakeLock !== null) {
+        wakeLock.release().then(() => {
+          wakeLock = null;
+        }).catch(() => {});
+      }
+    }
+
+    // Re-acquire lock if tab was minimized and returned
+    document.addEventListener('visibilitychange', async () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        await requestWakeLock();
+      }
+    });
+
+    /* ========================================================
+       LOCAL STORAGE & DATA ACCESS
+       ======================================================== */
+    function loadRoutines() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          routines = JSON.parse(raw);
+        } else {
+          routines = [...DEFAULT_ROUTINES];
+          saveRoutines();
+        }
+      } catch (e) {
+        routines = [...DEFAULT_ROUTINES];
+      }
+      renderRoutinesList();
+    }
+
+    function saveRoutines() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(routines));
+      } catch (e) {
+        console.error('Failed to save to localStorage', e);
+      }
+      renderRoutinesList();
+    }
+
+    /* ========================================================
+       MODAL & ALERT UTILITIES (NO window.alert / confirm)
+       ======================================================== */
+    const alertModal = document.getElementById('modal-alert');
+    const alertTitle = document.getElementById('alert-title');
+    const alertMsg = document.getElementById('alert-message');
+    const alertActions = document.getElementById('alert-actions');
+
+    function showCustomAlert(title, message, isConfirm = false, onConfirm = null) {
+      alertTitle.textContent = title;
+      alertMsg.textContent = message;
+      alertActions.innerHTML = '';
+
+      if (isConfirm) {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'w-1/2 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.onclick = () => {
+          alertModal.classList.add('hidden');
+          alertModal.classList.remove('flex');
+        };
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'w-1/2 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-sm transition';
+        confirmBtn.textContent = 'Delete';
+        confirmBtn.onclick = () => {
+          alertModal.classList.add('hidden');
+          alertModal.classList.remove('flex');
+          if (onConfirm) onConfirm();
+        };
+
+        alertActions.appendChild(cancelBtn);
+        alertActions.appendChild(confirmBtn);
+      } else {
+        const okBtn = document.createElement('button');
+        okBtn.className = 'w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-sm transition';
+        okBtn.textContent = 'Got it';
+        okBtn.onclick = () => {
+          alertModal.classList.add('hidden');
+          alertModal.classList.remove('flex');
+        };
+        alertActions.appendChild(okBtn);
+      }
+
+      alertModal.classList.remove('hidden');
+      alertModal.classList.add('flex');
+    }
+
+    /* ========================================================
+       RENDER DASHBOARD ROUTINES LIST
+       ======================================================== */
+    const routinesListEl = document.getElementById('routines-list');
+    const routineCountEl = document.getElementById('routine-count');
+
+    function calculateRoutineTotalTime(routine) {
+      let singleCircuitWork = 0;
+      let singleCircuitRest = 0;
+
+      routine.exercises.forEach(ex => {
+        singleCircuitWork += Number(ex.work) || 0;
+        singleCircuitRest += Number(ex.rest) || 0;
+      });
+
+      const warmup = Number(routine.warmup) || 0;
+      const rounds = Number(routine.rounds) || 1;
+      const roundRest = Number(routine.roundRest) || 0;
+
+      // rounds of exercises
+      let total = warmup + (singleCircuitWork + singleCircuitRest) * rounds;
+      // add rest between rounds (rounds - 1)
+      if (rounds > 1) {
+        total += (rounds - 1) * roundRest;
+      }
+      return total;
+    }
+
+    function formatTimeMMSS(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const m = Math.floor(s / 60);
+      const rem = s % 60;
+      return `${m < 10 ? '0' : ''}${m}:${rem < 10 ? '0' : ''}${rem}`;
+    }
+
+    function renderRoutinesList() {
+      routineCountEl.textContent = routines.length;
+      routinesListEl.innerHTML = '';
+
+      if (routines.length === 0) {
+        routinesListEl.innerHTML = `
+          <div class="text-center py-12 px-4 border border-dashed border-slate-800 rounded-3xl">
+            <p class="text-sm text-slate-400">No workout routines yet.</p>
+            <button id="btn-empty-create" class="mt-3 px-4 py-2 bg-emerald-500 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider">Create First Workout</button>
+          </div>
+        `;
+        const btnEmpty = document.getElementById('btn-empty-create');
+        if (btnEmpty) btnEmpty.onclick = () => openRoutineEditor();
+        return;
+      }
+
+      routines.forEach((routine) => {
+        const totalDurationSec = calculateRoutineTotalTime(routine);
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-4 transition-all shadow-md flex flex-col gap-3';
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between">
+            <div class="flex-1 pr-2">
+              <h3 class="font-extrabold text-base text-white tracking-tight leading-snug">${escapeHtml(routine.name)}</h3>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-400">
+                <span class="inline-flex items-center gap-1 font-semibold text-emerald-400">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  ${formatTimeMMSS(totalDurationSec)}
+                </span>
+                <span>•</span>
+                <span>${routine.rounds} ${routine.rounds === 1 ? 'Round' : 'Rounds'}</span>
+                <span>•</span>
+                <span>${routine.exercises.length} Exercises</span>
+                ${routine.warmup > 0 ? `<span>•</span><span class="text-cyan-400 font-medium">${routine.warmup}s Warm-up</span>` : ''}
+              </div>
+            </div>
+            <!-- Play Button -->
+            <button data-action="start" data-id="${routine.id}" class="w-12 h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20 transition" title="Start Workout">
+              <svg class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+
+          <!-- Exercises Chips Preview -->
+          <div class="flex flex-wrap gap-1.5">
+            ${routine.exercises.map(ex => `
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-800/90 text-slate-300 border border-slate-700/40">
+                ${escapeHtml(ex.name)} (${ex.work}s/${ex.rest}s)
+              </span>
+            `).join('')}
+          </div>
+
+          <!-- Action Buttons Bar -->
+          <div class="pt-2.5 border-t border-slate-800/80 flex items-center justify-end gap-3 text-xs font-semibold">
+            <button data-action="duplicate" data-id="${routine.id}" class="text-slate-400 hover:text-slate-200 transition py-1 px-1.5">Duplicate</button>
+            <button data-action="edit" data-id="${routine.id}" class="text-slate-300 hover:text-emerald-400 transition py-1 px-1.5">Edit</button>
+            <button data-action="delete" data-id="${routine.id}" class="text-rose-400/80 hover:text-rose-400 transition py-1 px-1.5">Delete</button>
+          </div>
+        `;
+
+        // Card button delegates
+        card.addEventListener('click', (e) => {
+          const btn = e.target.closest('button[data-action]');
+          if (!btn) return;
+          const action = btn.getAttribute('data-action');
+          const id = btn.getAttribute('data-id');
+
+          if (action === 'start') {
+            startWorkoutRoutine(id);
+          } else if (action === 'edit') {
+            openRoutineEditor(id);
+          } else if (action === 'duplicate') {
+            duplicateRoutine(id);
+          } else if (action === 'delete') {
+            promptDeleteRoutine(id);
+          }
+        });
+
+        routinesListEl.appendChild(card);
+      });
+    }
+
+    function escapeHtml(string) {
+      return String(string)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    /* ========================================================
+       WORKOUT BUILDER / EDITOR LOGIC
+       ======================================================== */
+    const modalEditor = document.getElementById('modal-editor');
+    const modalTitle = document.getElementById('modal-title');
+    const inputName = document.getElementById('input-routine-name');
+    const inputWarmup = document.getElementById('input-warmup');
+    const inputRounds = document.getElementById('input-rounds');
+    const inputRoundRest = document.getElementById('input-round-rest');
+    const editorList = document.getElementById('editor-exercises-list');
+
+    function openRoutineEditor(routineId = null) {
+      editingRoutineId = routineId;
+      editorList.innerHTML = '';
+
+      if (routineId) {
+        const found = routines.find(r => r.id === routineId);
+        if (found) {
+          modalTitle.textContent = 'Edit Workout Routine';
+          inputName.value = found.name;
+          inputWarmup.value = found.warmup;
+          inputRounds.value = found.rounds;
+          inputRoundRest.value = found.roundRest;
+
+          found.exercises.forEach(ex => {
+            addExerciseRowToEditor(ex.name, ex.work, ex.rest);
+          });
+        }
+      } else {
+        modalTitle.textContent = 'Create Workout Routine';
+        inputName.value = 'My Custom Workout';
+        inputWarmup.value = '10';
+        inputRounds.value = '3';
+        inputRoundRest.value = '45';
+
+        // Add 3 default initial exercise rows
+        addExerciseRowToEditor('Exercise 1', 40, 20);
+        addExerciseRowToEditor('Exercise 2', 40, 20);
+        addExerciseRowToEditor('Exercise 3', 40, 20);
+      }
+
+      modalEditor.classList.remove('hidden');
+    }
+
+    function closeRoutineEditor() {
+      modalEditor.classList.add('hidden');
+      editingRoutineId = null;
+    }
+
+    function addExerciseRowToEditor(name = 'Exercise', work = 40, rest = 20) {
+      const row = document.createElement('div');
+      row.className = 'exercise-row bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl flex items-center gap-2';
+
+      row.innerHTML = `
+        <div class="flex-1 min-w-0">
+          <label class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">Exercise Name</label>
+          <input type="text" class="row-name w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1.5 text-xs text-white font-medium focus:border-emerald-500 focus:outline-none" value="${escapeHtml(name)}">
+        </div>
+        <div class="w-16 shrink-0">
+          <label class="block text-[9px] font-bold uppercase tracking-wider text-emerald-400 mb-0.5 text-center">Work (s)</label>
+          <input type="number" min="5" max="600" step="1" class="row-work w-full bg-slate-900 border border-slate-700/80 rounded-lg px-1 py-1.5 text-xs text-center font-bold text-emerald-400 focus:border-emerald-500 focus:outline-none" value="${work}">
+        </div>
+        <div class="w-16 shrink-0">
+          <label class="block text-[9px] font-bold uppercase tracking-wider text-amber-400 mb-0.5 text-center">Rest (s)</label>
+          <input type="number" min="0" max="600" step="1" class="row-rest w-full bg-slate-900 border border-slate-700/80 rounded-lg px-1 py-1.5 text-xs text-center font-bold text-amber-400 focus:border-amber-500 focus:outline-none" value="${rest}">
+        </div>
+        <div class="shrink-0 self-end">
+          <button type="button" class="btn-remove-row p-2 text-slate-500 hover:text-rose-400 active:scale-90 transition rounded-lg" title="Delete Exercise">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      `;
+
+      row.querySelector('.btn-remove-row').onclick = () => {
+        const totalRows = editorList.querySelectorAll('.exercise-row').length;
+        if (totalRows <= 1) {
+          showCustomAlert('Notice', 'A workout must contain at least 1 exercise.');
+          return;
+        }
+        row.remove();
+      };
+
+      editorList.appendChild(row);
+    }
+
+    function saveRoutineFromEditor() {
+      const name = inputName.value.trim() || 'Untitled Workout';
+      const warmup = Math.max(0, parseInt(inputWarmup.value, 10) || 0);
+      const rounds = Math.max(1, parseInt(inputRounds.value, 10) || 1);
+      const roundRest = Math.max(0, parseInt(inputRoundRest.value, 10) || 0);
+
+      const rows = editorList.querySelectorAll('.exercise-row');
+      const exercises = [];
+
+      rows.forEach(row => {
+        const exName = row.querySelector('.row-name').value.trim() || 'Exercise';
+        const exWork = Math.max(5, parseInt(row.querySelector('.row-work').value, 10) || 40);
+        const exRest = Math.max(0, parseInt(row.querySelector('.row-rest').value, 10) || 0);
+        exercises.push({
+          name: exName,
+          work: exWork,
+          rest: exRest
+        });
+      });
+
+      if (exercises.length === 0) {
+        showCustomAlert('Error', 'Please add at least one exercise.');
+        return;
+      }
+
+      if (editingRoutineId) {
+        const index = routines.findIndex(r => r.id === editingRoutineId);
+        if (index !== -1) {
+          routines[index] = {
+            id: editingRoutineId,
+            name,
+            warmup,
+            rounds,
+            roundRest,
+            exercises
+          };
+        }
+      } else {
+        const newRoutine = {
+          id: 'routine_' + Date.now(),
+          name,
+          warmup,
+          rounds,
+          roundRest,
+          exercises
+        };
+        routines.push(newRoutine);
+      }
+
+      saveRoutines();
+      closeRoutineEditor();
+    }
+
+    function duplicateRoutine(id) {
+      const routine = routines.find(r => r.id === id);
+      if (!routine) return;
+      const copy = JSON.parse(JSON.stringify(routine));
+      copy.id = 'routine_' + Date.now();
+      copy.name = copy.name + ' (Copy)';
+      routines.push(copy);
+      saveRoutines();
+    }
+
+    function promptDeleteRoutine(id) {
+      const routine = routines.find(r => r.id === id);
+      if (!routine) return;
+      showCustomAlert(
+        'Delete Workout?',
+        `Are you sure you want to delete "${routine.name}"? This cannot be undone.`,
+        true,
+        () => {
+          routines = routines.filter(r => r.id !== id);
+          saveRoutines();
+        }
+      );
+    }
+
+    /* ========================================================
+       WORKOUT TIMELINE ENGINE COMPILER
+       ======================================================== */
+    /**
+     * Converts a structured Routine into a linear array of runnable steps
+     */
+    function buildTimelineFromRoutine(routine) {
+      const steps = [];
+
+      // 1. Optional Warm-up step
+      if (routine.warmup && routine.warmup > 0) {
+        steps.push({
+          phase: 'warmup',
+          title: 'Warm-up',
+          duration: routine.warmup,
+          round: 1,
+          totalRounds: routine.rounds
+        });
+      }
+
+      // 2. Iterate through rounds
+      for (let r = 1; r <= routine.rounds; r++) {
+        routine.exercises.forEach((ex, exIndex) => {
+          // Work step
+          steps.push({
+            phase: 'work',
+            title: ex.name,
+            duration: ex.work,
+            round: r,
+            totalRounds: routine.rounds,
+            exerciseIndex: exIndex + 1,
+            totalExercises: routine.exercises.length
+          });
+
+          // Rest step (after work, if duration > 0)
+          const isLastExerciseInRound = exIndex === routine.exercises.length - 1;
+          const isFinalRound = r === routine.rounds;
+
+          if (isLastExerciseInRound) {
+            // End of round rest (if not the final round of the entire workout)
+            if (!isFinalRound && routine.roundRest > 0) {
+              steps.push({
+                phase: 'roundrest',
+                title: 'Round Rest',
+                duration: routine.roundRest,
+                round: r,
+                totalRounds: routine.rounds
+              });
+            } else if (isFinalRound && ex.rest > 0) {
+              // On the very last exercise of the workout, usually finish directly or optional rest
+            }
+          } else {
+            // Normal inter-exercise rest
+            if (ex.rest > 0) {
+              steps.push({
+                phase: 'rest',
+                title: 'Rest',
+                duration: ex.rest,
+                round: r,
+                totalRounds: routine.rounds
+              });
+            }
+          }
+        });
+      }
+
+      // Final celebration step
+      steps.push({
+        phase: 'finished',
+        title: 'Workout Completed!',
+        duration: 0,
+        round: routine.rounds,
+        totalRounds: routine.rounds
+      });
+
+      return steps;
+    }
+
+    /* ========================================================
+       TIMER RUNTIME CONTROLLER
+       ======================================================== */
+    const viewDashboard = document.getElementById('view-dashboard');
+    const viewTimer = document.getElementById('view-timer');
+
+    const timerRoundPill = document.getElementById('timer-round-pill');
+    const timerProgressBar = document.getElementById('timer-progress-bar');
+    const timerElapsedText = document.getElementById('timer-elapsed-text');
+    const timerRemainingText = document.getElementById('timer-remaining-text');
+
+    const timerPhaseBadge = document.getElementById('timer-phase-badge');
+    const timerCurrentName = document.getElementById('timer-current-name');
+    const timerSecondsDisplay = document.getElementById('timer-seconds');
+    const timerNextName = document.getElementById('timer-next-name');
+
+    const btnTimerPlayPause = document.getElementById('btn-timer-playpause');
+    const iconPause = document.getElementById('icon-pause');
+    const iconPlay = document.getElementById('icon-play');
+    const btnTimerPrev = document.getElementById('btn-timer-prev');
+    const btnTimerNext = document.getElementById('btn-timer-next');
+    const btnTimerExit = document.getElementById('btn-timer-exit');
+    const btnTimerSoundToggle = document.getElementById('btn-timer-sound-toggle');
+    const iconSoundOn = document.getElementById('icon-sound-on');
+    const iconSoundOff = document.getElementById('icon-sound-off');
+
+    function startWorkoutRoutine(routineId) {
+      const found = routines.find(r => r.id === routineId);
+      if (!found) return;
+
+      // Unlock AudioContext and Speech on user tap
+      getAudioContext();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+      }
+
+      activeRoutine = found;
+      timeline = buildTimelineFromRoutine(found);
+      currentStepIndex = 0;
+      isPaused = false;
+      totalSecondsElapsed = 0;
+
+      // Calculate total workout seconds excluding 0-duration completion
+      totalWorkoutSeconds = timeline.reduce((acc, step) => acc + step.duration, 0);
+
+      // Open full screen timer view
+      viewDashboard.classList.add('hidden');
+      viewTimer.classList.remove('hidden');
+
+      // Request screen lock
+      requestWakeLock();
+
+      // Setup first step
+      loadStep(0);
+
+      // Announcement of workout start
+      speakText(`Starting ${found.name}. Get ready.`);
+
+      // Launch interval
+      clearInterval(timerInterval);
+      timerInterval = setInterval(tickTimer, 1000);
+      updatePlayPauseButtonUI();
+    }
+
+    function loadStep(index) {
+      currentStepIndex = index;
+      const step = timeline[currentStepIndex];
+
+      if (!step) return;
+
+      if (step.phase === 'finished') {
+        finishWorkout();
+        return;
+      }
+
+      stepSecondsLeft = step.duration;
+      updateTimerDisplayUI();
+    }
+
+    function tickTimer() {
+      if (isPaused) return;
+
+      const currentStep = timeline[currentStepIndex];
+      if (!currentStep || currentStep.phase === 'finished') return;
+
+      // Check Audio Cues based on remaining seconds
+      handleAudioCues(stepSecondsLeft, currentStep);
+
+      // Decrement step
+      if (stepSecondsLeft > 0) {
+        stepSecondsLeft--;
+        totalSecondsElapsed++;
+      }
+
+      // Check if step completed
+      if (stepSecondsLeft <= 0) {
+        playIntervalChangeTone();
+
+        // Advance to next step
+        if (currentStepIndex < timeline.length - 1) {
+          loadStep(currentStepIndex + 1);
+          const nextLoadedStep = timeline[currentStepIndex];
+          if (nextLoadedStep && nextLoadedStep.phase !== 'finished') {
+            // Immediate announcement on switch
+            if (nextLoadedStep.phase === 'work') {
+              speakText(nextLoadedStep.title);
+            } else if (nextLoadedStep.phase === 'rest' || nextLoadedStep.phase === 'roundrest') {
+              speakText("Rest");
+            }
+          }
+        } else {
+          finishWorkout();
+        }
+      }
+
+      updateTimerDisplayUI();
+    }
+
+    /**
+     * Precision Audio Cue Trigger
+     * - At 10s: Reads out next workout or rest
+     * - At 3, 2, 1s: Beeps tone + speaks number
+     */
+    function handleAudioCues(secondsRemaining, currentStep) {
+      // 10 Seconds remaining callout: announce next workout/rest
+      if (secondsRemaining === 10) {
+        const nextStep = getNextMeaningfulStep(currentStepIndex);
+        if (nextStep) {
+          if (nextStep.phase === 'work') {
+            speakText(`Next up: ${nextStep.title}`);
+          } else if (nextStep.phase === 'rest' || nextStep.phase === 'roundrest') {
+            speakText("Next up: Rest");
+          } else if (nextStep.phase === 'finished') {
+            speakText("Final stretch!");
+          }
+        }
+      }
+
+      // 3, 2, 1 Countdown beeps & verbal callouts
+      if (secondsRemaining === 3) {
+        playBeep(650, 0.12, 'sine');
+        speakText("Three");
+      } else if (secondsRemaining === 2) {
+        playBeep(650, 0.12, 'sine');
+        speakText("Two");
+      } else if (secondsRemaining === 1) {
+        playBeep(850, 0.16, 'sine');
+        speakText("One");
+      }
+    }
+
+    function getNextMeaningfulStep(currentIndex) {
+      if (currentIndex + 1 < timeline.length) {
+        return timeline[currentIndex + 1];
+      }
+      return null;
+    }
+
+    function updateTimerDisplayUI() {
+      const currentStep = timeline[currentStepIndex];
+      if (!currentStep) return;
+
+      // Update Seconds Display
+      timerSecondsDisplay.textContent = stepSecondsLeft;
+
+      // Update Titles
+      timerCurrentName.textContent = currentStep.title;
+      timerRoundPill.textContent = `Round ${currentStep.round} of ${currentStep.totalRounds}`;
+
+      // Next up label
+      const nextStep = getNextMeaningfulStep(currentStepIndex);
+      if (nextStep) {
+        if (nextStep.phase === 'work') {
+          timerNextName.textContent = `${nextStep.title} (${nextStep.duration}s)`;
+          timerNextName.className = 'block text-sm sm:text-base font-extrabold text-emerald-400 truncate mt-0.5';
+        } else if (nextStep.phase === 'rest' || nextStep.phase === 'roundrest') {
+          timerNextName.textContent = `Rest (${nextStep.duration}s)`;
+          timerNextName.className = 'block text-sm sm:text-base font-extrabold text-amber-400 truncate mt-0.5';
+        } else if (nextStep.phase === 'finished') {
+          timerNextName.textContent = 'Finish Line!';
+          timerNextName.className = 'block text-sm sm:text-base font-extrabold text-purple-400 truncate mt-0.5';
+        }
+      } else {
+        timerNextName.textContent = 'None';
+        timerNextName.className = 'block text-sm sm:text-base font-extrabold text-slate-400 truncate mt-0.5';
+      }
+
+      // Dynamic High-Contrast Styling based on Phase
+      applyPhaseColorTheme(currentStep.phase);
+
+      // Progress bars
+      const pct = Math.min(100, (totalSecondsElapsed / Math.max(1, totalWorkoutSeconds)) * 100);
+      timerProgressBar.style.width = `${pct}%`;
+      timerElapsedText.textContent = `Elapsed: ${formatTimeMMSS(totalSecondsElapsed)}`;
+      const remainingSec = Math.max(0, totalWorkoutSeconds - totalSecondsElapsed);
+      timerRemainingText.textContent = `Remaining: ${formatTimeMMSS(remainingSec)}`;
+    }
+
+    function applyPhaseColorTheme(phase) {
+      // Clean previous badge classes
+      timerPhaseBadge.className = 'px-5 py-2 rounded-2xl text-xs sm:text-sm font-black tracking-widest uppercase border shadow-xl ';
+
+      if (phase === 'work') {
+        timerPhaseBadge.textContent = 'WORK';
+        timerPhaseBadge.className += 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+        timerSecondsDisplay.className = 'font-timer text-[32vw] sm:text-[22vw] md:text-[18vw] leading-none font-bold tracking-tight text-emerald-400 drop-shadow-2xl';
+        timerProgressBar.className = 'h-full bg-emerald-500 transition-all duration-300 rounded-full';
+      } else if (phase === 'rest') {
+        timerPhaseBadge.textContent = 'REST';
+        timerPhaseBadge.className += 'bg-amber-500/20 text-amber-400 border-amber-500/40';
+        timerSecondsDisplay.className = 'font-timer text-[32vw] sm:text-[22vw] md:text-[18vw] leading-none font-bold tracking-tight text-amber-400 drop-shadow-2xl';
+        timerProgressBar.className = 'h-full bg-amber-500 transition-all duration-300 rounded-full';
+      } else if (phase === 'roundrest') {
+        timerPhaseBadge.textContent = 'ROUND REST';
+        timerPhaseBadge.className += 'bg-pink-500/20 text-pink-400 border-pink-500/40';
+        timerSecondsDisplay.className = 'font-timer text-[32vw] sm:text-[22vw] md:text-[18vw] leading-none font-bold tracking-tight text-pink-400 drop-shadow-2xl';
+        timerProgressBar.className = 'h-full bg-pink-500 transition-all duration-300 rounded-full';
+      } else if (phase === 'warmup') {
+        timerPhaseBadge.textContent = 'WARM-UP';
+        timerPhaseBadge.className += 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40';
+        timerSecondsDisplay.className = 'font-timer text-[32vw] sm:text-[22vw] md:text-[18vw] leading-none font-bold tracking-tight text-cyan-400 drop-shadow-2xl';
+        timerProgressBar.className = 'h-full bg-cyan-500 transition-all duration-300 rounded-full';
+      } else if (phase === 'finished') {
+        timerPhaseBadge.textContent = 'COMPLETE';
+        timerPhaseBadge.className += 'bg-purple-500/20 text-purple-400 border-purple-500/40';
+        timerSecondsDisplay.className = 'font-timer text-[22vw] sm:text-[16vw] leading-none font-bold tracking-tight text-purple-400 drop-shadow-2xl';
+        timerProgressBar.className = 'h-full bg-purple-500 transition-all duration-300 rounded-full';
+      }
+    }
+
+    function toggleTimerPlayPause() {
+      isPaused = !isPaused;
+      if (!isPaused) {
+        getAudioContext();
+      }
+      updatePlayPauseButtonUI();
+    }
+
+    function updatePlayPauseButtonUI() {
+      if (isPaused) {
+        iconPause.classList.add('hidden');
+        iconPlay.classList.remove('hidden');
+        btnTimerPlayPause.classList.replace('bg-emerald-500', 'bg-amber-500');
+        btnTimerPlayPause.classList.replace('hover:bg-emerald-400', 'hover:bg-amber-400');
+        btnTimerPlayPause.classList.replace('shadow-emerald-500/25', 'shadow-amber-500/25');
+      } else {
+        iconPause.classList.remove('hidden');
+        iconPlay.classList.add('hidden');
+        btnTimerPlayPause.classList.replace('bg-amber-500', 'bg-emerald-500');
+        btnTimerPlayPause.classList.replace('hover:bg-amber-400', 'hover:bg-emerald-400');
+        btnTimerPlayPause.classList.replace('shadow-amber-500/25', 'shadow-emerald-500/25');
+      }
+    }
+
+    function skipToNextStep() {
+      if (currentStepIndex < timeline.length - 1) {
+        loadStep(currentStepIndex + 1);
+        const step = timeline[currentStepIndex];
+        if (step.phase === 'work') {
+          speakText(step.title);
+        } else if (step.phase === 'rest') {
+          speakText("Rest");
+        }
+      }
+    }
+
+    function skipToPrevStep() {
+      if (currentStepIndex > 0) {
+        loadStep(currentStepIndex - 1);
+      }
+    }
+
+    function finishWorkout() {
+      clearInterval(timerInterval);
+      releaseWakeLock();
+      playIntervalChangeTone();
+      speakText("Workout complete! Outstanding job.");
+
+      timerCurrentName.textContent = "WORKOUT FINISHED!";
+      timerSecondsDisplay.textContent = "DONE";
+      timerNextName.textContent = "Great session!";
+      timerProgressBar.style.width = '100%';
+      applyPhaseColorTheme('finished');
+    }
+
+    function exitWorkoutTimer() {
+      clearInterval(timerInterval);
+      releaseWakeLock();
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      viewTimer.classList.add('hidden');
+      viewDashboard.classList.remove('hidden');
+    }
+
+    /* ========================================================
+       EVENT LISTENERS & BINDINGS
+       ======================================================== */
+    // Open workout editor
+    document.getElementById('btn-create-routine').onclick = () => openRoutineEditor();
+
+    // Editor Modal controls
+    document.getElementById('btn-close-modal').onclick = closeRoutineEditor;
+    document.getElementById('btn-cancel-modal').onclick = closeRoutineEditor;
+    document.getElementById('btn-add-exercise').onclick = () => addExerciseRowToEditor();
+    document.getElementById('btn-save-routine').onclick = saveRoutineFromEditor;
+
+    // Timer Controls
+    btnTimerPlayPause.onclick = toggleTimerPlayPause;
+    btnTimerNext.onclick = skipToNextStep;
+    btnTimerPrev.onclick = skipToPrevStep;
+    btnTimerExit.onclick = () => {
+      showCustomAlert(
+        'Exit Workout?',
+        'Are you sure you want to exit? Your current progress will be lost.',
+        true,
+        exitWorkoutTimer
+      );
+    };
+
+    // Mute / Sound Toggle
+    btnTimerSoundToggle.onclick = () => {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        iconSoundOn.classList.remove('hidden');
+        iconSoundOff.classList.add('hidden');
+        playBeep(800, 0.1);
+      } else {
+        iconSoundOn.classList.add('hidden');
+        iconSoundOff.classList.remove('hidden');
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      }
+    };
+
+    // Audio test button on dashboard
+    document.getElementById('btn-test-sound').onclick = () => {
+      getAudioContext();
+      playBeep(700, 0.15, 'sine');
+      setTimeout(() => {
+        speakText("Audio cues and speech synthesis ready.");
+      }, 200);
+    };
+
+    // Keyboard shortcuts for desktop spacebar pause/resume
+    window.addEventListener('keydown', (e) => {
+      if (!viewTimer.classList.contains('hidden')) {
+        if (e.code === 'Space') {
+          e.preventDefault();
+          toggleTimerPlayPause();
+        } else if (e.code === 'ArrowRight') {
+          skipToNextStep();
+        } else if (e.code === 'ArrowLeft') {
+          skipToPrevStep();
+        }
+      }
+    });
+
+    // Touch Swipe Left/Right Gesture on Active Screen for Skip
+    let touchStartX = 0;
+    let touchEndX = 0;
+    viewTimer.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    viewTimer.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const deltaX = touchEndX - touchStartX;
+      if (Math.abs(deltaX) > 85) {
+        if (deltaX < 0) {
+          skipToNextStep(); // swipe left -> next
+        } else {
+          skipToPrevStep(); // swipe right -> previous
+        }
+      }
+    }
+
+    /* Initialize Application on window load */
+    window.onload = function() {
+      loadRoutines();
+    };
+  </script>
+</body>
+</html>
